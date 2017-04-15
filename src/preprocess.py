@@ -22,21 +22,26 @@ def make_labels(label_file):
     for i, row in df.iterrows():
         print i
         detections = row['detections']
-        labels = []
+        radius = CLASS_RADIUS[row['class']]
+        labels = set()
         if detections == 'None':
             new_column.append(labels)
             continue
 
         for detection in detections.split('|'):
             x, y = detection.split(':')
-            center = np.array([int(x), int(y)])
 
-            for x_ in xrange(IMG_SIZE):
-                for y_ in xrange(IMG_SIZE):
-                    point = np.array([x_, y_])
-                    if np.linalg.norm(center - point) < CLASS_RADIUS[row['class']]:
-                        labels.append(tuple(point))
-        new_column.append(labels)
+            for x_ in xrange(max(0, x - radius), x + 1):
+                for y_ in xrange(max(0, y - radius), y + 1):
+                    if ((x_ - x)*(x_ - x) + (y - y_)*(y - y_)) <= radius*radius:
+                        xSym = x - (x_ - x)
+                        ySym = y - (y_ - y)
+
+                        labels.add(x_, y_)
+                        labels.add(x_, ySym)
+                        labels.add(xSym, y_)
+                        labels.add(xSym, ySym)
+        new_column.append(list(labels))
 
     df['points'] = new_column
     data_dir = os.path.dirname(label_file)
