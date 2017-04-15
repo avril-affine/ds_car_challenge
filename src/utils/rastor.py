@@ -57,7 +57,7 @@ class RastorGenerator(object):
 
             if self.label:
                 self.label_img = np.zeros((RastorGenerator.img_size, RastorGenerator.img_size),
-                                          dtype=np.int32)
+                                          dtype=np.float32)
                 mask = ((self.label_df['class'] == self.label)
                         & (self.label_df['image'] == img_name))
                 row = self.label_df[mask]
