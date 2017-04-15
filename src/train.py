@@ -23,7 +23,7 @@ def get_summary(name, mdl, generator):
 
 
 def main(args):
-    optimizer = Adam(LR)
+    optimizer = Adam(args.learning_rate)
     mdl = unet()
     mdl.compile(optimizer, jaccard)
 
@@ -65,7 +65,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='Train a keras unet model for safe passage contest'.)
+        description='Train a keras unet model for safe passage contest.')
     parser.add_argument('--model_dir', required=True,
         help='Directory to save model weights and logs to.')
     parser.add_argument('--train_dir', required=True,

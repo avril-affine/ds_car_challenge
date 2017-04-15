@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import pandas as pd
 from PIL import Image
 from keras import backend as K
 
@@ -19,26 +20,28 @@ class RastorGenerator(object):
     classes = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']
     img_size = 2000
 
-    def __init__(self, img_dir, label=None, label_dir=None, batch_size=55,
+    def __init__(self, img_dir, label=None, label_file=None, batch_size=55,
                  crop_size=240, stride=32):
         assert ((RastorGenerator.img_size - crop_size) % stride) == 0
         assert ((((RastorGenerator.img_size - crop_size) / stride) ** 2) % batch_size) == 0
         assert os.path.exists(img_dir)
         assert label in RastorGenerator.classes
-        if label_dir:
-            assert os.path.exists(label_dir)
+        if label_file:
+            assert os.path.exists(label_file)
             assert label is not None
 
         self.img_dir     = img_dir
         self.image_names = [x for x in os.listdir(self.img_dir) if not x.endswith('.jpg')]
         self.label       = label
-        self.label_dir   = label_dir
+        self.label_df    = pd.read_json(label_file)
         self.batch_size  = batch_size
         self.crop_size   = crop_size
         self.stride      = stride
         self.image_idx   = 0
         self.x           = 0
         self.y           = 0
+        self.img         = None
+        self.label_img   = None
 
     def __len__(self):
         crops_per_img = (RastorGenerator.img_size - crop_size) / stride
@@ -46,34 +49,39 @@ class RastorGenerator(object):
         return len(self.image_names) * (crops_per_img / self.batch_size)
 
     def next(self):
-        img_name = self.image_names[self.image_idx]
-        img_name = os.path.join(self.img_dir, img_name)
-        img = Image.open(img_name)
-        img = np.assarray(img, K.floatx())
+        if self.x == 0 and self.y == 0:
+            img_name = self.image_names[self.image_idx]
+            img_path = os.path.join(self.img_dir, img_path)
+            self.img = Image.open(img_path)
+            self.img = np.assarray(self.img, K.floatx())
 
-        if self.label:
-            img_basename = os.path.splitext(os.path.basename(img_name))
-            label_name = img_basename + '_' + self.label + '.npy'
-            label_name = os.path.join(self.label_dir, label_name)
-            label = np.load(label_name)
+            if self.label:
+                self.label_img = np.zeros((RastorGenerator.img_size, RastorGenerator.img_size),
+                                          dtype=np.int32)
+                mask = ((self.label_df['class'] == self.label)
+                        & (self.label_df['image'] == img_name))
+                row = self.label_df[mask]
+                for point in row['points']:
+                    # images in numpy array rows are y's
+                    self.label_img[point[1], point[0]] = 1
 
-        batch_x = np.zeros((self.batch_size,) + img.shape)
+        batch_x = np.zeros((self.batch_size,) + self.img.shape)
         if self.label:
-            batch_y = np.zeros((self.batch_size,) + label.shape)
+            batch_y = np.zeros((self.batch_size,) + self.label_img.shape)
 
         count = 0
-        for x in xrange(self.x, img.shape[0], stride):
-            for y in xrange(self.y, img.shape[1], stride):
-                batch_x[i] = img[x:x+stride, y:y+stride]
+        for x in xrange(self.x, self.img.shape[0], stride):
+            for y in xrange(self.y, self.img.shape[1], stride):
+                batch_x[i] = self.img[x:x+stride, y:y+stride]
                 if self.label:
-                    batch_y[i] = label[x:x+stride, y:y+stride]
+                    batch_y[i] = self.label_img[x:x+stride, y:y+stride]
                 count += 1
                 if count == self.batch_size:
                     break
 
         # keep track of where we are in rastoring the image
-        self.x = (x + stride) % img.shape[0]
-        self.y = (y + stride) % img.shape[1]
+        self.x = (x + stride) % self.img.shape[0]
+        self.y = (y + stride) % self.img.shape[1]
 
         # if both x and y are done then move to next image
         if self.x == 0 and self.y == 0:
