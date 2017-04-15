@@ -31,7 +31,7 @@ class RastorGenerator(object):
             assert label is not None
 
         self.img_dir     = img_dir
-        self.image_names = [x for x in os.listdir(self.img_dir) if not x.endswith('.jpg')]
+        self.image_names = [x for x in os.listdir(self.img_dir) if x.endswith('.jpg')]
         self.label       = label
         self.label_df    = pd.read_json(label_file)
         self.batch_size  = batch_size
@@ -44,16 +44,16 @@ class RastorGenerator(object):
         self.label_img   = None
 
     def __len__(self):
-        crops_per_img = (RastorGenerator.img_size - crop_size) / stride
+        crops_per_img = (RastorGenerator.img_size - self.crop_size) / self.stride
         crops_per_img *= crops_per_img
-        return len(self.image_names) * (crops_per_img / self.batch_size)
+        return len(self.image_names) * crops_per_img / self.batch_size
 
     def next(self):
         if self.x == 0 and self.y == 0:
             img_name = self.image_names[self.image_idx]
-            img_path = os.path.join(self.img_dir, img_path)
+            img_path = os.path.join(self.img_dir, img_name)
             self.img = Image.open(img_path)
-            self.img = np.assarray(self.img, K.floatx())
+            self.img = np.asarray(self.img, K.floatx())
 
             if self.label:
                 self.label_img = np.zeros((RastorGenerator.img_size, RastorGenerator.img_size),
@@ -65,29 +65,27 @@ class RastorGenerator(object):
                     # images in numpy array rows are y's
                     self.label_img[point[1], point[0]] = 1
 
-        batch_x = np.zeros((self.batch_size,) + self.img.shape)
+        batch_x = np.zeros((self.batch_size, self.crop_size, self.crop_size, 3))
         if self.label:
-            batch_y = np.zeros((self.batch_size,) + self.label_img.shape)
+            batch_y = np.zeros((self.batch_size, self.crop_size, self.crop_size, 1))
 
         count = 0
-        for x in xrange(self.x, self.img.shape[0], stride):
-            for y in xrange(self.y, self.img.shape[1], stride):
-                batch_x[i] = self.img[x:x+stride, y:y+stride]
+        for x in xrange(self.x, self.img.shape[0], self.stride):
+            for y in xrange(self.y, self.img.shape[1], self.stride):
+                batch_x[count] = self.img[x:x+self.crop_size, y:y+self.crop_size]
                 if self.label:
-                    batch_y[i] = self.label_img[x:x+stride, y:y+stride]
+                    batch_y[count,:,:,0] = self.label_img[x:x+self.crop_size, y:y+self.crop_size]
                 count += 1
                 if count == self.batch_size:
-                    break
+                    # keep track of where we are in rastoring the image
+                    self.x = (x + self.stride) % self.img.shape[0]
+                    self.y = (y + self.stride) % self.img.shape[1]
 
-        # keep track of where we are in rastoring the image
-        self.x = (x + stride) % self.img.shape[0]
-        self.y = (y + stride) % self.img.shape[1]
+                    # if both x and y are done then move to next image
+                    if self.x == 0 and self.y == 0:
+                        self.image_idx = (self.image_idx + 1) % len(self.image_names)
 
-        # if both x and y are done then move to next image
-        if self.x == 0 and self.y == 0:
-            self.image_idx = (self.image_idx + 1) % len(self.image_names)
-
-        if self.label:
-            return batch_x, batch_y
-        else:
-            return batch_x
+                    if self.label:
+                        return batch_x, batch_y
+                    else:
+                        return batch_x

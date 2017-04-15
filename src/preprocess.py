@@ -1,4 +1,5 @@
 import os
+import shutil
 import numpy as np
 import pandas as pd
 
@@ -20,7 +21,6 @@ def make_labels(label_file):
 
     new_column = []
     for i, row in df.iterrows():
-        print i
         detections = row['detections']
         radius = CLASS_RADIUS[row['class']]
         labels = set()
@@ -47,8 +47,29 @@ def make_labels(label_file):
 
     df['points'] = new_column
     data_dir = os.path.dirname(label_file)
-    df.to_csv(os.path.join(data_dir, 'new_train.csv'), index=False)
     df.to_json(os.path.join(data_dir, 'new_train.json'))
+
+
+def train_val_split(data_dir):
+    train_dir = os.path.join(data_dir, 'train')
+    val_dir = os.path.join(data_dir, 'val')
+
+    if not os.path.exists(val_dir):
+        os.makedirs(val_dir)
+    else:
+        print 'Validation directory exists... not splitting'
+        return
+
+    train_imgs = [x for x in os.listdir(train_dir) if x.endswith('.jpg')]
+
+    indices = range(len(train_imgs))
+    np.random.shuffle(indices)
+
+    val_indices = indices[:100]
+    for i in val_indices:
+        img_name = train_imgs[i]
+        shutil.move(os.path.join(train_dir, img_name),
+                    os.path.join(val_dir, img_name))
 
 
 def main():
@@ -57,7 +78,12 @@ def main():
 
     label_file = os.path.join(home_dir, 'data/trainingObservations.csv')
 
+    print 'Calculating acceptable pixels...'
     make_labels(label_file)
+
+    print 'Splitting train/val set...'
+    data_dir = os.path.join(home_dir, 'data')
+    train_val_split(data_dir)
 
 
 if __name__ == '__main__':

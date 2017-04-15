@@ -18,7 +18,8 @@ def conv2d_bn(x, num_filters, filter_size=(3, 3), transpose=False):
 
 
 def unet():
-    X = Input((240, 240, 3))
+    img_size = 240
+    X = Input((img_size, img_size, 3))
 
     # Encode level 1
     encode1 = conv2d_bn(X, 64)
@@ -67,6 +68,65 @@ def unet():
     decode1 = Concatenate()([encode1, decode1])
     decode1 = conv2d_bn(decode1, 64)
     decode1 = conv2d_bn(decode1, 32)
+    decode1 = Conv2D(1, kernel_size=(1, 1))(decode1)
+    decode1 = Activation('sigmoid')(decode1)
+
+    mdl = Model(X, decode1)
+    return mdl
+
+
+def small_unet():
+    img_size = 240
+    filter_size = 32
+    X = Input((img_size, img_size, 3))
+
+    # Encode level 1
+    encode1 = conv2d_bn(X, filter_size)
+    encode1 = conv2d_bn(encode1, filter_size)
+
+    # Encode level 2
+    encode2 = MaxPool2D((2, 2))(encode1)
+    encode2 = conv2d_bn(encode2, filter_size * 2)
+    encode2 = conv2d_bn(encode2, filter_size * 2)
+
+    # Encode level 3
+    encode3 = MaxPool2D((2, 2))(encode2)
+    encode3 = conv2d_bn(encode3, filter_size * 4)
+    encode3 = conv2d_bn(encode3, filter_size * 4)
+
+    # Encode level 4
+    encode4 = MaxPool2D((2, 2))(encode3)
+    encode4 = conv2d_bn(encode4, filter_size * 8)
+    encode4 = conv2d_bn(encode4, filter_size * 8)
+
+    # Encode level 5
+    encode5 = MaxPool2D((2, 2))(encode4)
+    encode5 = conv2d_bn(encode5, filter_size * 16)
+    encode5 = conv2d_bn(encode5, filter_size * 8)
+
+    # Decode level 4
+    decode4 = conv2d_bn(encode5, filter_size * 8, transpose=True)
+    decode4 = Concatenate()([encode4, decode4])
+    decode4 = conv2d_bn(decode4, filter_size * 8)
+    decode4 = conv2d_bn(decode4, filter_size * 8)
+
+    # Decode level 3
+    decode3 = conv2d_bn(decode4, filter_size * 4, transpose=True)
+    decode3 = Concatenate()([encode3, decode3])
+    decode3 = conv2d_bn(decode3, filter_size * 4)
+    decode3 = conv2d_bn(decode3, filter_size * 4)
+
+    # Decode level 2
+    decode2 = conv2d_bn(decode3, filter_size * 2, transpose=True)
+    decode2 = Concatenate()([encode2, decode2])
+    decode2 = conv2d_bn(decode2, filter_size * 2)
+    decode2 = conv2d_bn(decode2, filter_size * 2)
+
+    # Decode level 1
+    decode1 = conv2d_bn(decode2, filter_size, transpose=True)
+    decode1 = Concatenate()([encode1, decode1])
+    decode1 = conv2d_bn(decode1, filter_size)
+    decode1 = conv2d_bn(decode1, filter_size / 2)
     decode1 = Conv2D(1, kernel_size=(1, 1))(decode1)
     decode1 = Activation('sigmoid')(decode1)
 

@@ -1,7 +1,7 @@
 import os
 import argparse
+import models
 import tensorflow as tf
-from models import unet
 from losses import jaccard
 from keras.optimizers import Adam
 from keras import backend as K
@@ -23,34 +23,39 @@ def get_summary(name, mdl, generator):
 
 
 def main(args):
-    optimizer = Adam(args.learning_rate)
-    mdl = unet()
-    mdl.compile(optimizer, jaccard)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
+    sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+    K.set_session(sess)
 
-    print mdl.metrics_names
+    optimizer = Adam(args.learning_rate)
+    mdl = models.small_unet()
+    mdl.compile(optimizer, jaccard)
 
     train_generator = RastorGenerator(args.train_dir,
                                       label=args.label,
-                                      label_dir=args.label_dir,
+                                      label_file=args.label_file,
                                       batch_size=args.batch_size,
                                       crop_size=args.crop_size,
-                                      stride=args.stride)
-    train_generator = RastorGenerator(args.val_dir,
-                                      label=args.label,
-                                      label_dir=args.label_dir,
-                                      batch_size=args.batch_size,
-                                      crop_size=args.crop_size,
-                                      stride=args.stride)
+                                      stride=args.rastor_stride)
+    val_generator = RastorGenerator(args.val_dir,
+                                    label=args.label,
+                                    label_file=args.label_file,
+                                    batch_size=args.batch_size,
+                                    crop_size=args.crop_size,
+                                    stride=args.rastor_stride)
+    print 'train_gen size: {}, val_gen size: {}'.format(len(train_generator), len(val_generator))
 
     sess = K.get_session()
     writer = tf.summary.FileWriter(os.path.join(args.model_dir, 'logs'), sess.graph)
 
     best_loss = None
-    for epoch in xrange(NUM_EPOCHS):
+    for epoch in xrange(args.num_epochs):
         # train
-        for _ in xrange(len(train_generator)):
+        for i in xrange(len(train_generator)):
             batch_x, batch_y = train_generator.next()
-            mdl.train_on_batch(batch_x, batch_y)
+            loss = mdl.train_on_batch(batch_x, batch_y)
+            if i % 25:
+                print 'Loss = {}'.format(loss)
 
         # write train/val loss summary
         train_loss, train_summary = get_summary('train_loss', mdl, train_generator)
@@ -58,7 +63,10 @@ def main(args):
         writer.add_summary(train_summary, epoch)
         writer.add_summary(val_summary, epoch)
 
+        print 'Train_loss: {}, Val_loss: {}'.format(train_loss, val_loss)
+
         if best_loss and (val_loss < best_loss):
+            print 'New best validation loss. Saving...'
             best_loss = val_loss
             mdl.save(os.path.join(args.model_dir, 'weights.h5'))
 
@@ -72,7 +80,7 @@ if __name__ == '__main__':
         help='Directory for images to train on.')
     parser.add_argument('--val_dir', required=True,
         help='Directory for images to validate on.')
-    parser.add_argument('--label_dir', required=True,
+    parser.add_argument('--label_file', required=True,
         help='Directory for labels of each image.')
     parser.add_argument('--label', required=True,
         help='Which label to train on.')
