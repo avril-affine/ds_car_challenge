@@ -23,13 +23,14 @@ def get_summary(name, mdl, generator):
 
 
 def main(args):
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
+    gpu_options.allow_growth = True
     sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
     K.set_session(sess)
 
     optimizer = Adam(args.learning_rate)
     mdl = models.small_unet()
-    mdl.compile(optimizer, jaccard)
+    mdl.compile(optimizer, 'binary_crossentropy')
 
     train_generator = RastorGenerator(args.train_dir,
                                       label=args.label,
@@ -49,13 +50,15 @@ def main(args):
     writer = tf.summary.FileWriter(os.path.join(args.model_dir, 'logs'), sess.graph)
 
     best_loss = None
+    step = 0
     for epoch in xrange(args.num_epochs):
         # train
         for i in xrange(len(train_generator)):
             batch_x, batch_y = train_generator.next()
             loss = mdl.train_on_batch(batch_x, batch_y)
-            if i % 25:
-                print 'Loss = {}'.format(loss)
+            if step % 25 == 0:
+                print 'Step {}: Loss = {}'.format(step, loss)
+            step += 1
 
         # write train/val loss summary
         train_loss, train_summary = get_summary('train_loss', mdl, train_generator)

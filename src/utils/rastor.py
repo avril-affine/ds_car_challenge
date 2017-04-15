@@ -60,8 +60,8 @@ class RastorGenerator(object):
                                           dtype=np.float32)
                 mask = ((self.label_df['class'] == self.label)
                         & (self.label_df['image'] == img_name))
-                row = self.label_df[mask]
-                for point in row['points']:
+                points = self.label_df[mask]['points'].values[0]
+                for point in points:
                     # images in numpy array rows are y's
                     self.label_img[point[1], point[0]] = 1
 
@@ -70,16 +70,16 @@ class RastorGenerator(object):
             batch_y = np.zeros((self.batch_size, self.crop_size, self.crop_size, 1))
 
         count = 0
-        for x in xrange(self.x, self.img.shape[0], self.stride):
-            for y in xrange(self.y, self.img.shape[1], self.stride):
+        for x in xrange(self.x, self.img.shape[0] - self.crop_size + 1, self.stride):
+            for y in xrange(self.y, self.img.shape[1] - self.crop_size + 1, self.stride):
                 batch_x[count] = self.img[x:x+self.crop_size, y:y+self.crop_size]
                 if self.label:
                     batch_y[count,:,:,0] = self.label_img[x:x+self.crop_size, y:y+self.crop_size]
                 count += 1
                 if count == self.batch_size:
                     # keep track of where we are in rastoring the image
-                    self.x = (x + self.stride) % self.img.shape[0]
-                    self.y = (y + self.stride) % self.img.shape[1]
+                    self.x = (x + self.stride) % (self.img.shape[0] - self.crop_size)
+                    self.y = (y + self.stride) % (self.img.shape[1] - self.crop_size)
 
                     # if both x and y are done then move to next image
                     if self.x == 0 and self.y == 0:
