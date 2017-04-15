@@ -25,11 +25,13 @@ def make_labels(label_file):
         radius = CLASS_RADIUS[row['class']]
         labels = set()
         if detections == 'None':
-            new_column.append(labels)
+            new_column.append(list(labels))
             continue
 
         for detection in detections.split('|'):
             x, y = detection.split(':')
+            x = int(x)
+            y = int(y)
 
             for x_ in xrange(max(0, x - radius), x + 1):
                 for y_ in xrange(max(0, y - radius), y + 1):
@@ -37,10 +39,10 @@ def make_labels(label_file):
                         xSym = x - (x_ - x)
                         ySym = y - (y_ - y)
 
-                        labels.add(x_, y_)
-                        labels.add(x_, ySym)
-                        labels.add(xSym, y_)
-                        labels.add(xSym, ySym)
+                        labels.add((x_, y_))
+                        labels.add((x_, ySym))
+                        labels.add((xSym, y_))
+                        labels.add((xSym, ySym))
         new_column.append(list(labels))
 
     df['points'] = new_column
