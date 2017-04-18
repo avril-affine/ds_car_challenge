@@ -8,14 +8,8 @@ from keras.models import load_model
 from utils.rastor import RastorGenerator
 
 
-def predict(weights_file, args, archive=None):
+def predict(weights_file, test_dir, label_file, crop_size, stride, threshold, archive=None):
     mdl = load_model(weights_file)
-
-    test_dir   = args.test_dir
-    label_file = args.label_file
-    crop_size  = args.crop_size
-    stride     = args.stride
-    threshold  = args.threshold
 
     test_generator = RastorGenerator(test_dir,
                                      batch_size=1,
@@ -111,7 +105,8 @@ def main(args):
         archive = None
     for cls in classes:
         weights_file = os.path.join(model_dir, cls, 'weights.h5')
-        predict(weights_file, args, archive=archive)
+        predict(weights_file, args.test_dir, args.label_file, args.crop_size,
+                args.stride, args.threshold, archive=archive)
     archive.close()
 
 
