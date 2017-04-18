@@ -77,6 +77,14 @@ class RastorGenerator(object):
                     batch_y[count,:,:,0] = self.label_img[x:x+self.crop_size, y:y+self.crop_size]
                 count += 1
                 if count == self.batch_size:
+                    # normalize x by channels
+                    mu = np.zeros(3)
+                    sd = np.zeros(3)
+                    for i in xrange(3):
+                        mu[i] = np.mean(batch_x[:,:,:,i])
+                        sd[i] = np.std(batch_x[:,:,:,i])
+                    batch_x = (batch_x - mu) / sd
+
                     # keep track of where we are in rastoring the image
                     self.x = (x + self.stride) % (self.img.shape[0] - self.crop_size)
                     self.y = (y + self.stride) % (self.img.shape[1] - self.crop_size)
