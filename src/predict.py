@@ -3,6 +3,7 @@ import sys
 import cv2
 import tarfile
 import argparse
+import pandas as pd
 from PIL import Image
 from keras.models import load_model
 from utils.rastor import RastorGenerator
@@ -17,6 +18,7 @@ def predict(weights_file, test_dir, label_file, crop_size, stride, threshold, ar
                                      stride=stride)
 
     test_files = [x for x in os.listdir(test_dir) if x.endswith('.jpg')]
+    test_ids = [os.path.splitext(x)[0] for x in test_files]
     rastors_per_img = len(test_generator) / test_size
 
     mask = np.ones((crop_size, crop_size))
@@ -44,16 +46,13 @@ def predict(weights_file, test_dir, label_file, crop_size, stride, threshold, ar
         all_boxes.append(boxes)
 
         test_path = os.path.join(test_dir, test_file)
-        test_img = Image.open(test_path)  # testing
         plot_preds(test_img, boxes)
-        cv2.imshow('img', test_img) # testing
         if archive:
             preds_dir = os.path.join('/tmp/preds')
             pred_file = os.path.join(preds_dir, os.listdir(test_dir)[i])
             cv2.imwrite(pred_file, test_img)
             archive.add(pred_file)
-        break   # testing
-    return convert_boxes(all_boxes)
+    return test_ids, convert_boxes(all_boxes)
 
 
 def plot_preds(img, boxes):
@@ -103,11 +102,22 @@ def main(args):
         archive = tarfile.open(args.archive_file, 'w:gz')
     else:
         archive = None
+    ids = []
+    detections = []
     for cls in classes:
+        print 'predicting class {}...'.format(cls)
         weights_file = os.path.join(model_dir, cls, 'weights.h5')
-        predict(weights_file, args.test_dir, args.label_file, args.crop_size,
-                args.stride, args.threshold, archive=archive)
+        test_ids, preds = predict(weights_file, args.test_dir, args.label_file,
+                                  args.crop_size, args.stride, args.threshold,
+                                  archive=archive)
+        test_ids = [x + '_' + cls for x in test_ids]
+        ids.extend(test_ids)
+        detections.extend(preds)
     archive.close()
+
+    print 'writing submission csv'
+    df = pd.DataFrame({'id': ids, 'detections': detections})
+    df.to_csv(os.path.join(model_dir, 'submission.csv'), index=False)
 
 
 if __name__ == '__main__':

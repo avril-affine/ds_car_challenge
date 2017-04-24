@@ -1,8 +1,8 @@
 import os
 import argparse
 import models
-import tensorflow as tf
-from losses import jaccard
+# import tensorflow as tf
+from losses import jaccard, dice_coef
 from keras.optimizers import Adam
 from keras import backend as K
 from utils.rastor import RastorGenerator
@@ -23,14 +23,15 @@ def get_summary(name, mdl, generator):
 
 
 def main(args):
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
-    gpu_options.allow_growth = True
-    sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
-    K.set_session(sess)
+    # gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
+    # gpu_options.allow_growth = True
+    # sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+    # K.set_session(sess)
 
     optimizer = Adam(args.learning_rate)
-    mdl = models.small_unet()
+    mdl = models.unet()
     mdl.compile(optimizer, 'binary_crossentropy')
+    # mdl.compile(optimizer, jaccard)
 
     train_generator = RastorGenerator(args.train_dir,
                                       label=args.label,
@@ -46,8 +47,8 @@ def main(args):
                                     stride=args.rastor_stride)
     print 'train_gen size: {}, val_gen size: {}'.format(len(train_generator), len(val_generator))
 
-    sess = K.get_session()
-    writer = tf.summary.FileWriter(os.path.join(args.model_dir, 'logs'), sess.graph)
+    # sess = K.get_session()
+    # writer = tf.summary.FileWriter(os.path.join(args.model_dir, 'logs'), sess.graph)
 
     best_loss = None
     step = 0
@@ -61,17 +62,18 @@ def main(args):
             step += 1
 
         # write train/val loss summary
-        train_loss, train_summary = get_summary('train_loss', mdl, train_generator)
-        val_loss, val_summary     = get_summary('val_loss', mdl, val_generator)
-        writer.add_summary(train_summary, epoch)
-        writer.add_summary(val_summary, epoch)
+        # train_loss, train_summary = get_summary('train_loss', mdl, train_generator)
+        # val_loss, val_summary     = get_summary('val_loss', mdl, val_generator)
+        # writer.add_summary(train_summary, epoch)
+        # writer.add_summary(val_summary, epoch)
 
-        print 'Train_loss: {}, Val_loss: {}'.format(train_loss, val_loss)
+        # print 'Train_loss: {}, Val_loss: {}'.format(train_loss, val_loss)
 
-        if best_loss and (val_loss < best_loss):
-            print 'New best validation loss. Saving...'
-            best_loss = val_loss
-            mdl.save(os.path.join(args.model_dir, 'weights.h5'))
+        # if best_loss and (val_loss < best_loss):
+        #     print 'New best validation loss. Saving...'
+        #     best_loss = val_loss
+        #      mdl.save(os.path.join(args.model_dir, 'weights.h5'))
+        mdl.save(os.path.join(args.model_dir, 'weights.h5'))
 
 
 if __name__ == '__main__':
