@@ -25,10 +25,10 @@ class RastorGenerator(object):
         assert ((RastorGenerator.img_size - crop_size) % stride) == 0
         assert ((((RastorGenerator.img_size - crop_size) / stride) ** 2) % batch_size) == 0
         assert os.path.exists(img_dir)
-        assert label in RastorGenerator.classes
         if label_file:
             assert os.path.exists(label_file)
             assert label is not None
+            assert label in RastorGenerator.classes
 
         self.img_dir     = img_dir
         self.image_names = [x for x in os.listdir(self.img_dir) if x.endswith('.jpg')]
