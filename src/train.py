@@ -5,7 +5,7 @@ import tensorflow as tf
 from losses import jaccard, dice_coef
 from keras.optimizers import Adam
 from keras import backend as K
-from utils.rastor import RastorGenerator
+from utils.random_rastor import RandomRastorGenerator
 
 
 STEPS_PER_VAL = 100
@@ -32,18 +32,16 @@ def main(args):
     mdl.compile(optimizer, 'binary_crossentropy')
     # mdl.compile(optimizer, jaccard)
 
-    train_generator = RastorGenerator(args.train_dir,
-                                      label=args.label,
-                                      label_file=args.label_file,
-                                      batch_size=args.batch_size,
-                                      crop_size=args.crop_size,
-                                      stride=args.rastor_stride)
-    val_generator = RastorGenerator(args.val_dir,
-                                    label=args.label,
-                                    label_file=args.label_file,
-                                    batch_size=args.batch_size,
-                                    crop_size=args.crop_size,
-                                    stride=args.rastor_stride)
+    train_generator = RandomRastorGenerator(args.train_dir,
+                                            label=args.label,
+                                            label_file=args.label_file,
+                                            batch_size=args.batch_size,
+                                            crop_size=args.crop_size)
+    val_generator = RandomRastorGenerator(args.val_dir,
+                                          label=args.label,
+                                          label_file=args.label_file,
+                                          batch_size=args.batch_size,
+                                          crop_size=args.crop_size)
     # print 'train_gen size: {}, val_gen size: {}'.format(len(train_generator), len(val_generator))
 
     sess = K.get_session()
