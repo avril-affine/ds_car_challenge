@@ -1,16 +1,20 @@
 import os
 import argparse
 import models
-# import tensorflow as tf
+import tensorflow as tf
 from losses import jaccard, dice_coef
 from keras.optimizers import Adam
 from keras import backend as K
 from utils.rastor import RastorGenerator
 
 
+STEPS_PER_VAL = 100
+NUM_VAL = 100
+
+
 def get_summary(name, mdl, generator):
     loss = []
-    for _ in xrange(len(generator)):
+    for _ in xrange(NUM_VAL):
         batch_x, batch_y = generator.next()
         loss.append(mdl.test_on_batch(batch_x, batch_y))
 
@@ -23,11 +27,6 @@ def get_summary(name, mdl, generator):
 
 
 def main(args):
-    # gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
-    # gpu_options.allow_growth = True
-    # sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
-    # K.set_session(sess)
-
     optimizer = Adam(args.learning_rate)
     mdl = models.unet()
     mdl.compile(optimizer, 'binary_crossentropy')
@@ -45,35 +44,40 @@ def main(args):
                                     batch_size=args.batch_size,
                                     crop_size=args.crop_size,
                                     stride=args.rastor_stride)
-    print 'train_gen size: {}, val_gen size: {}'.format(len(train_generator), len(val_generator))
+    # print 'train_gen size: {}, val_gen size: {}'.format(len(train_generator), len(val_generator))
 
-    # sess = K.get_session()
-    # writer = tf.summary.FileWriter(os.path.join(args.model_dir, 'logs'), sess.graph)
+    sess = K.get_session()
+    writer = tf.summary.FileWriter(os.path.join(args.model_dir, 'logs'), sess.graph)
 
     best_loss = None
     step = 0
+    stop_count = 0
     for epoch in xrange(args.num_epochs):
         # train
-        for i in xrange(len(train_generator)):
-            batch_x, batch_y = train_generator.next()
-            loss = mdl.train_on_batch(batch_x, batch_y)
-            if step % 25 == 0:
-                print 'Step {}: Loss = {}'.format(step, loss)
-            step += 1
+        batch_x, batch_y = train_generator.next()
+        loss = mdl.train_on_batch(batch_x, batch_y)
+        if step % 25 == 0:
+            print 'Step {}: Loss = {}'.format(step, loss)
 
         # write train/val loss summary
-        # train_loss, train_summary = get_summary('train_loss', mdl, train_generator)
-        # val_loss, val_summary     = get_summary('val_loss', mdl, val_generator)
-        # writer.add_summary(train_summary, epoch)
-        # writer.add_summary(val_summary, epoch)
+        if step % STEPS_PER_VAL == 0:
+            train_loss, train_summary = get_summary('train_loss', mdl, train_generator)
+            val_loss, val_summary     = get_summary('val_loss', mdl, val_generator)
+            writer.add_summary(train_summary, epoch)
+            writer.add_summary(val_summary, epoch)
 
-        # print 'Train_loss: {}, Val_loss: {}'.format(train_loss, val_loss)
+        print 'Train_loss: {}, Val_loss: {}'.format(train_loss, val_loss)
 
-        # if best_loss and (val_loss < best_loss):
-        #     print 'New best validation loss. Saving...'
-        #     best_loss = val_loss
-        #      mdl.save(os.path.join(args.model_dir, 'weights.h5'))
-        mdl.save(os.path.join(args.model_dir, 'weights.h5'))
+        if best_loss and (val_loss < best_loss):
+            print 'New best validation loss. Saving...'
+            best_loss = val_loss
+            mdl.save(os.path.join(args.model_dir, 'weights.h5'))
+        else:
+            stop_count += 1
+
+        if args.early_stop > 0 and stop_count >= args.early_stop:
+            break
+        step += 1
 
 
 if __name__ == '__main__':
@@ -94,6 +98,8 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=55,
         help='Size of each batch for training.')
     parser.add_argument('--num_epochs', type=int, default=100,
+        help='Number of epochs to run model.')
+    parser.add_argument('--early_stop', type=int, default=8,
         help='Number of epochs to run model.')
     parser.add_argument('--crop_size', type=int, default=240,
         help='Size for each rastored image.')
