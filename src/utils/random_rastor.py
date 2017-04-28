@@ -49,7 +49,7 @@ class RandomRastorGenerator(object):
             img_name = self.image_names[image_idx]
             img_path = os.path.join(self.img_dir, img_name)
             img = Image.open(img_path)
-            img = np.asarray(self.img, K.floatx())
+            img = np.asarray(img, K.floatx())
 
             mask = ((self.label_df['class'] == self.label)
                     & (self.label_df['image'] == img_name))
@@ -59,7 +59,7 @@ class RandomRastorGenerator(object):
                                           dtype=np.float32)
                 for point in points:
                     # images in numpy array rows are y's
-                    self.label_img[point[1], point[0]] = 1
+                    label_img[point[1], point[0]] = 1
 
             # get random point
             x = np.random.randint(0, constants.img_size - self.crop_size)
@@ -76,14 +76,15 @@ class RandomRastorGenerator(object):
                 for _ in xrange(self.n_pos):
                     rand_idx = np.random.randint(0, len(points))
                     x_, y_ = points[rand_idx]
-                    radius = constants.class_radius / 2
+                    radius = constants.class_radius[self.label] / 2
                     x = max(0, x_ - radius)
                     y = max(0, y_ - radius)
-                    x_end = min(constants.img_size, x_ + radius)
-                    y_end = min(constants.img_size, y_ + radius)
-                    batch_x[count] = img[x:x_end, y:y_end]
+                    # if radius does not fit on img subtract from start point
+                    x -= max(0, (x_ + radius) - (constants.img_size - self.crop_size))
+                    y -= max(0, (y_ + radius) - (constants.img_size - self.crop_size))
+                    batch_x[count] = img[x:x+self.crop_size, y:y+self.crop_size]
                     if self.label:
-                        batch_y[count,:,:,0] = label_img[x:x_end, y:y_end]
+                        batch_y[count,:,:,0] = label_img[x:x+self.crop_size, y:y+self.crop_size]
                     count += 1
                     if count == self.batch_size:
                         break
