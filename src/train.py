@@ -8,7 +8,7 @@ from keras import backend as K
 from utils.random_rastor import RandomRastorGenerator
 
 
-STEPS_PER_VAL = 100
+STEPS_PER_VAL = 1000
 NUM_VAL = 100
 
 
@@ -63,17 +63,18 @@ def main(args):
             val_loss, val_summary     = get_summary('val_loss', mdl, val_generator)
             writer.add_summary(train_summary, epoch)
             writer.add_summary(val_summary, epoch)
+            print 'Train_loss: {}, Val_loss: {}'.format(train_loss, val_loss)
 
-        print 'Train_loss: {}, Val_loss: {}'.format(train_loss, val_loss)
-
-        if best_loss and (val_loss < best_loss):
-            print 'New best validation loss. Saving...'
-            best_loss = val_loss
-            mdl.save(os.path.join(args.model_dir, 'weights.h5'))
-        else:
-            stop_count += 1
+            if (best_loss is None) or (val_loss < best_loss):
+                print 'New best validation loss. Saving...'
+                best_loss = val_loss
+                stop_count = 0
+                mdl.save(os.path.join(args.model_dir, 'weights.h5'))
+            else:
+                stop_count += 1
 
         if args.early_stop > 0 and stop_count >= args.early_stop:
+            print 'Validation loss did not improve after {} steps. Stopping...'.format(args.early_stop)
             break
         step += 1
 
@@ -95,7 +96,7 @@ if __name__ == '__main__':
         help='Learning rate for gradient descent.')
     parser.add_argument('--batch_size', type=int, default=55,
         help='Size of each batch for training.')
-    parser.add_argument('--num_epochs', type=int, default=100,
+    parser.add_argument('--num_epochs', type=int, default=100000,
         help='Number of epochs to run model.')
     parser.add_argument('--early_stop', type=int, default=8,
         help='Number of epochs to run model.')

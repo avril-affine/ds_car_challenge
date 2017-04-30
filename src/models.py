@@ -19,55 +19,56 @@ def conv2d_bn(x, num_filters, filter_size=(3, 3), transpose=False):
 
 def unet():
     img_size = 240
+    num_filters = 64
     X = Input((img_size, img_size, 3))
 
     # Encode level 1
-    encode1 = conv2d_bn(X, 64)
-    encode1 = conv2d_bn(encode1, 64)
+    encode1 = conv2d_bn(X, num_filters)
+    encode1 = conv2d_bn(encode1, num_filters)
 
     # Encode level 2
     encode2 = MaxPool2D((2, 2))(encode1)
-    encode2 = conv2d_bn(encode2, 128)
-    encode2 = conv2d_bn(encode2, 128)
+    encode2 = conv2d_bn(encode2, num_filters * 2)
+    encode2 = conv2d_bn(encode2, num_filters * 2)
 
     # Encode level 3
     encode3 = MaxPool2D((2, 2))(encode2)
-    encode3 = conv2d_bn(encode3, 256)
-    encode3 = conv2d_bn(encode3, 256)
+    encode3 = conv2d_bn(encode3, num_filters * 4)
+    encode3 = conv2d_bn(encode3, num_filters * 4)
 
     # Encode level 4
     encode4 = MaxPool2D((2, 2))(encode3)
-    encode4 = conv2d_bn(encode4, 512)
-    encode4 = conv2d_bn(encode4, 512)
+    encode4 = conv2d_bn(encode4, num_filters * 8)
+    encode4 = conv2d_bn(encode4, num_filters * 8)
 
     # Encode level 5
     encode5 = MaxPool2D((2, 2))(encode4)
-    encode5 = conv2d_bn(encode5, 1024)
-    encode5 = conv2d_bn(encode5, 512)
+    encode5 = conv2d_bn(encode5, num_filters * 16)
+    encode5 = conv2d_bn(encode5, num_filters * 8)
 
     # Decode level 4
-    decode4 = conv2d_bn(encode5, 512, transpose=True)
+    decode4 = conv2d_bn(encode5, num_filters * 8, transpose=True)
     decode4 = Concatenate()([encode4, decode4])
-    decode4 = conv2d_bn(decode4, 512)
-    decode4 = conv2d_bn(decode4, 512)
+    decode4 = conv2d_bn(decode4, num_filters * 8)
+    decode4 = conv2d_bn(decode4, num_filters * 8)
 
     # Decode level 3
-    decode3 = conv2d_bn(decode4, 256, transpose=True)
+    decode3 = conv2d_bn(decode4, num_filters * 4, transpose=True)
     decode3 = Concatenate()([encode3, decode3])
-    decode3 = conv2d_bn(decode3, 256)
-    decode3 = conv2d_bn(decode3, 256)
+    decode3 = conv2d_bn(decode3, num_filters * 4)
+    decode3 = conv2d_bn(decode3, num_filters * 4)
 
     # Decode level 2
-    decode2 = conv2d_bn(decode3, 128, transpose=True)
+    decode2 = conv2d_bn(decode3, num_filters * 2, transpose=True)
     decode2 = Concatenate()([encode2, decode2])
-    decode2 = conv2d_bn(decode2, 128)
-    decode2 = conv2d_bn(decode2, 128)
+    decode2 = conv2d_bn(decode2, num_filters * 2)
+    decode2 = conv2d_bn(decode2, num_filters * 2)
 
     # Decode level 1
-    decode1 = conv2d_bn(decode2, 64, transpose=True)
+    decode1 = conv2d_bn(decode2, num_filters, transpose=True)
     decode1 = Concatenate()([encode1, decode1])
-    decode1 = conv2d_bn(decode1, 64)
-    decode1 = conv2d_bn(decode1, 32)
+    decode1 = conv2d_bn(decode1, num_filters)
+    decode1 = conv2d_bn(decode1, num_filters / 2)
     decode1 = Conv2D(1, kernel_size=(1, 1))(decode1)
     decode1 = Activation('sigmoid')(decode1)
 
@@ -77,23 +78,23 @@ def unet():
 
 def small_unet():
     img_size = 240
-    filter_size = 32
+    num_filters = 32
     X = Input((img_size, img_size, 3))
 
     # Encode level 1
-    encode1 = conv2d_bn(X, filter_size)
-    encode1 = conv2d_bn(encode1, filter_size)
+    encode1 = conv2d_bn(X, num_filters)
+    encode1 = conv2d_bn(encode1, num_filters)
 
     # Encode level 2
     encode2 = MaxPool2D((2, 2))(encode1)
-    encode2 = conv2d_bn(encode2, filter_size * 2)
-    encode2 = conv2d_bn(encode2, filter_size)
+    encode2 = conv2d_bn(encode2, num_filters * 2)
+    encode2 = conv2d_bn(encode2, num_filters)
 
     # Decode level 1
-    decode1 = conv2d_bn(encode2, filter_size, transpose=True)
+    decode1 = conv2d_bn(encode2, num_filters, transpose=True)
     decode1 = Concatenate()([encode1, decode1])
-    decode1 = conv2d_bn(decode1, filter_size)
-    decode1 = conv2d_bn(decode1, filter_size / 2)
+    decode1 = conv2d_bn(decode1, num_filters)
+    decode1 = conv2d_bn(decode1, num_filters / 2)
     decode1 = Conv2D(1, kernel_size=(1, 1))(decode1)
     decode1 = Activation('sigmoid')(decode1)
 

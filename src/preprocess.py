@@ -2,18 +2,7 @@ import os
 import shutil
 import numpy as np
 import pandas as pd
-
-
-IMG_SIZE = 2000
-CLASS_RADIUS = {'A': 12,
-                'B': 30,
-                'C': 30,
-                'D': 30,
-                'E': 30,
-                'F': 30,
-                'G': 30,
-                'H': 40,
-                'I': 45}
+from utils import constants
 
 
 def make_labels(label_file):
@@ -22,7 +11,7 @@ def make_labels(label_file):
     new_column = []
     for i, row in df.iterrows():
         detections = row['detections']
-        radius = CLASS_RADIUS[row['class']]
+        radius = constants.class_radius[row['class']]
         labels = set()
         if detections == 'None':
             new_column.append(list(labels))
@@ -33,8 +22,8 @@ def make_labels(label_file):
             x = int(x)
             y = int(y)
 
-            for x_ in xrange(max(0, x - radius), x + 1):
-                for y_ in xrange(max(0, y - radius), y + 1):
+            for x_ in xrange(max(0, x - radius), min(constants.img_size, x + 1)):
+                for y_ in xrange(max(0, y - radius), min(constants.img_size, y + 1)):
                     if ((x_ - x)*(x_ - x) + (y - y_)*(y - y_)) <= radius*radius:
                         xSym = x - (x_ - x)
                         ySym = y - (y_ - y)
