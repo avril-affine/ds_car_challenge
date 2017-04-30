@@ -28,10 +28,14 @@ def make_labels(label_file):
                         xSym = x - (x_ - x)
                         ySym = y - (y_ - y)
 
-                        labels.add((x_, y_))
-                        labels.add((x_, ySym))
-                        labels.add((xSym, y_))
-                        labels.add((xSym, ySym))
+                        if x_ >= 0 and x_ < constants.img_size and y_ >= 0 and y_ < constants.img_size:
+                            labels.add((x_, y_))
+                        if x_ >= 0 and x_ < constants.img_size and ySym >= 0 and ySym < constants.img_size:
+                            labels.add((x_, ySym))
+                        if xSym >= 0 and xSym < constants.img_size and y_ >= 0 and y_ < constants.img_size:
+                            labels.add((xSym, y_))
+                        if xSym >= 0 and xSym < constants.img_size and ySym >= 0 and ySym < constants.img_size:
+                            labels.add((xSym, ySym))
         new_column.append(list(labels))
 
     df['points'] = new_column
