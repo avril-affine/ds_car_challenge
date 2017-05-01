@@ -4,12 +4,21 @@ import models
 import tensorflow as tf
 from losses import jaccard, dice_coef
 from keras.optimizers import Adam
+from keras.preprocessing.image import ImageDataGenerator
 from keras import backend as K
 from utils.random_rastor import RandomRastorGenerator
 
 
 STEPS_PER_VAL = 1000
 NUM_VAL = 100
+transformer = ImageDataGenerator(
+    shear_range=0.1,
+    zoom_range=0.1,
+    rotation_range=10.,
+    width_shift_range=0.1,
+    height_shift_range=0.1,
+    horizontal_flip=True,
+    vertical_flip=True)
 
 
 def get_summary(name, mdl, generator):
@@ -36,12 +45,14 @@ def main(args):
                                             label=args.label,
                                             label_file=args.label_file,
                                             batch_size=args.batch_size,
-                                            crop_size=args.crop_size)
+                                            crop_size=args.crop_size,
+                                            transformer=transformer)
     val_generator = RandomRastorGenerator(args.val_dir,
                                           label=args.label,
                                           label_file=args.label_file,
                                           batch_size=args.batch_size,
-                                          crop_size=args.crop_size)
+                                          crop_size=args.crop_size,
+                                          transformer=transformer)
     # print 'train_gen size: {}, val_gen size: {}'.format(len(train_generator), len(val_generator))
 
     sess = K.get_session()
@@ -98,7 +109,7 @@ if __name__ == '__main__':
         help='Size of each batch for training.')
     parser.add_argument('--num_epochs', type=int, default=100000,
         help='Number of epochs to run model.')
-    parser.add_argument('--early_stop', type=int, default=8,
+    parser.add_argument('--early_stop', type=int, default=5,
         help='Number of epochs to run model.')
     parser.add_argument('--crop_size', type=int, default=240,
         help='Size for each rastored image.')

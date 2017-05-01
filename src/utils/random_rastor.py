@@ -37,7 +37,7 @@ class RandomRastorGenerator(object):
                  label_file=None,
                  batch_size=32,
                  crop_size=240,
-                 n_pos=2,
+                 n_pos=4,
                  transformer=None):
         assert os.path.exists(img_dir)
         if label_file:
@@ -90,12 +90,15 @@ class RandomRastorGenerator(object):
                     label_img[point[1], point[0]] = 1
 
             # get random point
-            x = np.random.randint(0, constants.img_size - self.crop_size)
-            y = np.random.randint(0, constants.img_size - self.crop_size)
-            batch_x[count] = self.crop_transform_image(img, x, y)
-            if self.label:
-                batch_y[count,:,:,0] = self.crop_transform_image(label_img, x, y, False)
-            count += 1
+            for _ in xrange(2):
+                x = np.random.randint(0, constants.img_size - self.crop_size)
+                y = np.random.randint(0, constants.img_size - self.crop_size)
+                batch_x[count] = self.crop_transform_image(img, x, y)
+                if self.label:
+                    batch_y[count,:,:,0] = self.crop_transform_image(label_img, x, y, False)
+                count += 1
+                if count == self.batch_size:
+                    break
             if count == self.batch_size:
                 break
 
