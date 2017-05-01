@@ -2,6 +2,7 @@ import os
 import shutil
 import numpy as np
 import pandas as pd
+from PIL import Image
 from utils import constants
 
 
@@ -43,6 +44,39 @@ def make_labels(label_file):
     df.to_json(os.path.join(data_dir, 'new_train.json'))
 
 
+def calc_mean_std(data_dir):
+    img_dir = os.path.join(data_dir, 'train')
+
+    # calc mean
+    acc = np.zeros((constants.img_size, constants.img_size, 3))
+    count = 0
+    for img_name in os.listdir(img_dir):
+        if not img_name.endswith('.jpg'):
+            continue
+        img_path = os.path.join(img_dir, img_name)
+        img = Image.open(img_path)
+        acc += np.asarray(img, np.float)
+        count += 1
+    mu = np.mean(acc / np.array([count] * 3), axis=(0,1))
+
+    # calc std
+    acc = np.zeros((constants.img_size, constants.img_size, 3))
+    count = 0
+    for img_name in os.listdir(img_dir):
+        if not img_name.endswith('.jpg'):
+            continue
+        img_path = os.path.join(img_dir, img_name)
+        img = Image.open(img_path)
+        img = np.asarray(img, np.float)
+        img = (img - mu) ** 2
+        acc += img
+        count += 1
+    sd = np.sqrt(np.mean(acc / np.array([count] * 3), axis=(0,1)))
+
+    print 'mu:', mu
+    print 'std:', sd
+
+
 def train_val_split(data_dir):
     train_dir = os.path.join(data_dir, 'train')
     val_dir = os.path.join(data_dir, 'val')
@@ -74,8 +108,11 @@ def main():
     print 'Calculating acceptable pixels...'
     make_labels(label_file)
 
-    print 'Splitting train/val set...'
+    print 'Calculating mean/std...'
     data_dir = os.path.join(home_dir, 'data')
+    calc_mean_std(data_dir)
+
+    print 'Splitting train/val set...'
     train_val_split(data_dir)
 
 

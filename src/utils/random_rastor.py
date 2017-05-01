@@ -6,6 +6,15 @@ from PIL import Image
 from keras import backend as K
 
 
+def normalize_image(img):
+    """Normalize image to scale [-1, 1]
+
+    Parameters:
+        img     (ndarray): 3-dimensional numpy array
+    """
+    return (img - constants.mu) / constants.sd
+
+
 class RandomRastorGenerator(object):
     """Generator for randomly selecting images for datasciencechallenge.org
     safe passage contest.
@@ -68,7 +77,7 @@ class RandomRastorGenerator(object):
             img_name = self.image_names[image_idx]
             img_path = os.path.join(self.img_dir, img_name)
             img = Image.open(img_path)
-            img = np.asarray(img, K.floatx())
+            img = normalize_image(np.asarray(img, K.floatx()))
 
             mask = ((self.label_df['class'] == self.label)
                     & (self.label_df['image'] == img_name))
