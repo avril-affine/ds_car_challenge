@@ -6,7 +6,7 @@ from losses import jaccard, dice_coef
 from keras.optimizers import Adam
 from keras.preprocessing.image import ImageDataGenerator
 from keras import backend as K
-from utils.random_rastor import RandomRastorGenerator
+from utils.image_processing import RandomRastorGenerator
 
 
 STEPS_PER_VAL = 1000
