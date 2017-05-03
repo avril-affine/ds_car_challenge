@@ -6,59 +6,63 @@ import argparse
 import pandas as pd
 from PIL import Image
 from keras.models import load_model
-from utils.rastor import RastorGenerator
+from utils.image_processing import normalize_image
+from utils import constants
 
 
-def predict(weights_file, test_dir, label_file, crop_size, stride, threshold, archive=None):
+def predict(weights_file, test_dir, crop_size, stride, threshold):
     mdl = load_model(weights_file)
 
-    test_generator = RastorGenerator(test_dir,
-                                     batch_size=1,
-                                     crop_size=crop_size,
-                                     stride=stride)
-
     test_files = [x for x in os.listdir(test_dir) if x.endswith('.jpg')]
-    test_ids = [os.path.splitext(x)[0] for x in test_files]
-    rastors_per_img = len(test_generator) / test_size
 
     mask = np.ones((crop_size, crop_size))
     all_boxes = []
     for test_file in test_files:
-        preds = np.zeros((2000, 2000))
-        count = np.zeros((2000, 2000))
-        for _ in xrange(rastors_per_img):
-            x = test_generator.x
-            y = test_generator.y
+        preds = np.zeros((constants.img_size, constants.img_size))
+        count = np.zeros((constants.img_size, constants.img_size))
 
-            batch_x = test_generator.next()
-            preds_ = model.predict_on_batch(batch_x)[0]
+        test_path = os.path.join(test_dir, test_file)
+        test_img = Image.open(test_path)
+        test_img = np.asarray(test_img, np.float32)
 
-            preds[x:x+crop_size, y:y+crop_size] += preds_
-            count[x:x+crop_size, y:y+crop_size] += mask
+        # rastor test image
+        for x in xrange(0, constants.img_size - crop_size + 1, stride):
+            for y in xrange(0, constants.img_size - crop_size + 1, sride):
+                batch_x = np.array([test_img[x:x+crop_size, y:y+crop_size]])
+                preds_ = model.predict_on_batch(batch_x)[0]
 
-        preds = (preds / count) > threshold   # average and threshold predictions
+                preds[x:x+crop_size, y:y+crop_size] += preds_
+                count[x:x+crop_size, y:y+crop_size] += mask
+
+        # average predictions and take threshold
+        preds = (preds / count) > threshold
         countours, _ = cv2.findContours(preds, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 
+        # find boxes from thresholded prediction
         boxes = []
         for cnt in countours:
             box = cv2.boundingRect(cnt)
             boxes.append(box)
         all_boxes.append(boxes)
+    return all_boxes
 
+def plot_preds(test_dir, all_boxes, archive):
+    for test_file, boxes in zip(test_files, all_boxes):
+        # load test image
         test_path = os.path.join(test_dir, test_file)
-        plot_preds(test_img, boxes)
-        if archive:
-            preds_dir = os.path.join('/tmp/preds')
-            pred_file = os.path.join(preds_dir, os.listdir(test_dir)[i])
-            cv2.imwrite(pred_file, test_img)
-            archive.add(pred_file)
-    return test_ids, convert_boxes(all_boxes)
+        test_img = Image.open(test_path)
+        test_img = np.asarray(test_img, np.float32)
 
+        # draw predicted boxes
+        for box in boxes:
+            x,y,w,h = box
+            cv2.rectangle(test_img, (x,y), (x+w, y+h), (255,0,0), 2)
+        preds_dir = os.path.join('/tmp/preds')
+        pred_file = os.path.join(preds_dir, test_file)
 
-def plot_preds(img, boxes):
-    for box in boxes:
-        x,y,w,h = box
-        cv2.rectangle(test_img, (x,y), (x+w, y+h), (255,0,0), 2)
+        # write to file and add to archive
+        cv2.imwrite(pred_file, test_img)
+        archive.add(pred_file)
 
 
 def convert_boxes(all_boxes):
@@ -102,14 +106,19 @@ def main(args):
         archive = tarfile.open(args.archive_file, 'w:gz')
     else:
         archive = None
+
+    test_files = [x for x in os.listdir(test_dir) if x.endswith('.jpg')]
+    test_ids = [os.path.splitext(x)[0] for x in test_files]
     ids = []
     detections = []
     for cls in classes:
         print 'predicting class {}...'.format(cls)
         weights_file = os.path.join(model_dir, cls, 'weights.h5')
-        test_ids, preds = predict(weights_file, args.test_dir, args.label_file,
-                                  args.crop_size, args.stride, args.threshold,
-                                  archive=archive)
+        all_boxes = predict(weights_file, args.test_dir, args.crop_size,
+                            args.stride, args.threshold, archive=archive)
+        if archive:
+            plot_preds(args.test_dir, all_boxes, archive)
+        preds = convert_boxes(all_boxes)
         test_ids = [x + '_' + cls for x in test_ids]
         ids.extend(test_ids)
         detections.extend(preds)
