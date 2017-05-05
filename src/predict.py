@@ -3,51 +3,70 @@ import sys
 import cv2
 import tarfile
 import argparse
+import numpy as np
 import pandas as pd
 from PIL import Image
+from skimage import img_as_ubyte
+from keras import backend as K
 from keras.models import load_model
 from utils.image_processing import normalize_image
 from utils import constants
 
 
-def predict(weights_file, test_dir, crop_size, stride, threshold):
-    mdl = load_model(weights_file)
+def predict(cls, model_dir, test_dir, crop_size, stride, threshold):
+    weights_file = os.path.join(model_dir, cls, 'weights.h5')
+    model = load_model(weights_file)
+
+    min_area = (constants.class_radius[cls] / 2) * (constants.class_radius[cls] / 2)
 
     test_files = [x for x in os.listdir(test_dir) if x.endswith('.jpg')]
 
-    mask = np.ones((crop_size, crop_size))
+    mask = np.ones((crop_size, crop_size, 1))
     all_boxes = []
     for test_file in test_files:
-        preds = np.zeros((constants.img_size, constants.img_size))
-        count = np.zeros((constants.img_size, constants.img_size))
+        print test_file
+        preds = np.zeros((constants.img_size, constants.img_size, 1))
+        count = np.zeros((constants.img_size, constants.img_size, 1))
 
         test_path = os.path.join(test_dir, test_file)
         test_img = Image.open(test_path)
         test_img = np.asarray(test_img, np.float32)
+        test_img = normalize_image(test_img)
 
         # rastor test image
         for x in xrange(0, constants.img_size - crop_size + 1, stride):
-            for y in xrange(0, constants.img_size - crop_size + 1, sride):
+            for y in xrange(0, constants.img_size - crop_size + 1, stride):
                 batch_x = np.array([test_img[x:x+crop_size, y:y+crop_size]])
                 preds_ = model.predict_on_batch(batch_x)[0]
+                print np.max(preds_)
 
                 preds[x:x+crop_size, y:y+crop_size] += preds_
                 count[x:x+crop_size, y:y+crop_size] += mask
 
         # average predictions and take threshold
         preds = (preds / count) > threshold
-        countours, _ = cv2.findContours(preds, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        preds = img_as_ubyte(preds)
+        _, contours, _ = cv2.findContours(preds, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         # find boxes from thresholded prediction
+        test_img = Image.open(test_path)
+        test_img = np.asarray(test_img, np.float32)
         boxes = []
-        for cnt in countours:
+        for cnt in contours:
             box = cv2.boundingRect(cnt)
-            boxes.append(box)
+            if box[2] * box[3] > min_area:
+                boxes.append(box)
+                x,y,w,h = box
+                cv2.rectangle(test_img, (x,y), (x+w, y+h), (255,0,0), 2)
+        cv2.imshow(test_img)
+        cv2.waitKey(0)
+
         all_boxes.append(boxes)
+    K.clear_session()
     return all_boxes
 
 def plot_preds(test_dir, all_boxes, archive):
-    for test_file, boxes in zip(test_files, all_boxes):
+    for test_file, boxes in zip(os.listdir(test_dir), all_boxes):
         # load test image
         test_path = os.path.join(test_dir, test_file)
         test_img = Image.open(test_path)
@@ -85,7 +104,8 @@ def convert_boxes(all_boxes):
 
 
 def main(args):
-    classes = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']
+    # classes = constants.classes
+    classes = ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']
     model_dir = args.model_dir
 
     # check if everything exists
@@ -107,17 +127,16 @@ def main(args):
     else:
         archive = None
 
-    test_files = [x for x in os.listdir(test_dir) if x.endswith('.jpg')]
+    test_files = [x for x in os.listdir(args.test_dir) if x.endswith('.jpg')]
     test_ids = [os.path.splitext(x)[0] for x in test_files]
     ids = []
     detections = []
     for cls in classes:
         print 'predicting class {}...'.format(cls)
-        weights_file = os.path.join(model_dir, cls, 'weights.h5')
-        all_boxes = predict(weights_file, args.test_dir, args.crop_size,
-                            args.stride, args.threshold, archive=archive)
-        if archive:
-            plot_preds(args.test_dir, all_boxes, archive)
+        all_boxes = predict(cls, model_dir, args.test_dir, args.crop_size,
+                            args.stride, args.threshold)
+        # if archive:
+        #     plot_preds(args.test_dir, all_boxes, archive)
         preds = convert_boxes(all_boxes)
         test_ids = [x + '_' + cls for x in test_ids]
         ids.extend(test_ids)
