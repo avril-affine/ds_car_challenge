@@ -7,6 +7,7 @@ from keras.optimizers import Adam
 from keras.preprocessing.image import ImageDataGenerator
 from keras import backend as K
 from utils.image_processing import RandomRastorGenerator
+from utils import constants
 
 
 STEPS_PER_VAL = 1000
@@ -58,13 +59,16 @@ def main(args):
     sess = K.get_session()
     writer = tf.summary.FileWriter(os.path.join(args.model_dir, 'logs'), sess.graph)
 
+    class_weight = {0: 1. * (constants.class_radius[args.label] ** 2) / (args.crop_size ** 2) / 2,
+                    1: 1.}
+
     best_loss = None
     step = 0
     stop_count = 0
     for epoch in xrange(args.num_epochs):
         # train
         batch_x, batch_y = train_generator.next()
-        loss = mdl.train_on_batch(batch_x, batch_y)
+        loss = mdl.train_on_batch(batch_x, batch_y, class_weight=class_weight)
         if step % 25 == 0:
             print 'Step {}: Loss = {}'.format(step, loss)
 

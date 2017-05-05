@@ -77,6 +77,15 @@ def calc_mean_std(data_dir):
     print 'std:', sd
 
 
+def calc_area_ratio(home_dir):
+    df = pd.read_json(os.path.join(home_dir, 'data/new_train.json'))
+    df['num_points'] = df['detections'].map(lambda x: 0 if x == 'None' else len(x.split('|')))
+    df['area_per_point'] = df['class'].map(lambda x: constants.class_radius[x] ** 2)
+    df['area_ratio'] = df['area_per_point'] * df['num_points'] / 4000000.
+    grouped_df = df.groupby('class')
+    print grouped_df['area_ratio'].mean()
+
+
 def train_val_split(data_dir):
     train_dir = os.path.join(data_dir, 'train')
     val_dir = os.path.join(data_dir, 'val')
@@ -107,6 +116,9 @@ def main():
 
     print 'Calculating acceptable pixels...'
     make_labels(label_file)
+
+    print 'Calculating area ratios...'
+    calc_area_ratio(home_dir)
 
     print 'Calculating mean/std...'
     data_dir = os.path.join(home_dir, 'data')
