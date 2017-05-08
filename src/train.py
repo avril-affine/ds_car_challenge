@@ -2,7 +2,7 @@ import os
 import argparse
 import models
 import tensorflow as tf
-from losses import jaccard, dice_coef
+from losses import jaccard, dice_coef, weighted_logloss
 from keras.optimizers import Adam
 from keras.preprocessing.image import ImageDataGenerator
 from keras import backend as K
@@ -39,7 +39,8 @@ def get_summary(name, mdl, generator):
 def main(args):
     optimizer = Adam(args.learning_rate)
     mdl = models.unet()
-    mdl.compile(optimizer, 'binary_crossentropy')
+    class_weight = (constants.class_radius[args.label] ** 2) / (args.crop_size ** 2) / 2
+    mdl.compile(optimizer, lambda x, y: weighted_logloss(x, y, class_weight))
     # mdl.compile(optimizer, jaccard)
 
     train_generator = RandomRastorGenerator(args.train_dir,
@@ -59,8 +60,6 @@ def main(args):
     sess = K.get_session()
     writer = tf.summary.FileWriter(os.path.join(args.model_dir, 'logs'), sess.graph)
 
-    class_weight = {0: 1. * (constants.class_radius[args.label] ** 2) / (args.crop_size ** 2) / 2,
-                    1: 1.}
 
     best_loss = None
     step = 0
@@ -68,7 +67,7 @@ def main(args):
     for epoch in xrange(args.num_epochs):
         # train
         batch_x, batch_y = train_generator.next()
-        loss = mdl.train_on_batch(batch_x, batch_y, class_weight=class_weight)
+        loss = mdl.train_on_batch(batch_x, batch_y)
         if step % 25 == 0:
             print 'Step {}: Loss = {}'.format(step, loss)
 
