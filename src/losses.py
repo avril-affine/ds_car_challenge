@@ -1,12 +1,12 @@
 from keras import backend as K
 
 
-def weighted_logloss(y_true, y_pred, zero_weight):
+def weighted_logloss(y_true, y_pred, one_weight):
     y_true_ = K.flatten(y_true)
     y_pred_ = K.clip(K.flatten(y_pred), K.epsilon(), 1 - K.epsilon())
 
-    zero_mask = K.cast(K.equal(y_true_, 0.), 'float32') * zero_weight
-    one_mask = K.cast(K.equal(y_true_, 1.), 'float32')
+    zero_mask = K.cast(K.equal(y_true_, 0.), 'float32')
+    one_mask = K.cast(K.equal(y_true_, 1.), 'float32') / one_weight
     weights = zero_mask + one_mask
 
     return -K.mean(y_true_ * K.log(y_pred_) + weights * (1 - y_true_) * K.log(1 - y_pred_))

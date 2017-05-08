@@ -1,6 +1,7 @@
 import os
 import argparse
 import models
+import numpy as np
 import tensorflow as tf
 from losses import jaccard, dice_coef, weighted_logloss
 from keras.optimizers import Adam
@@ -39,7 +40,7 @@ def get_summary(name, mdl, generator):
 def main(args):
     optimizer = Adam(args.learning_rate)
     mdl = models.unet()
-    class_weight = (constants.class_radius[args.label] ** 2) / (args.crop_size ** 2) / 2
+    class_weight = 1. * (constants.class_radius[args.label] ** 2) / (args.crop_size ** 2) / 2
     mdl.compile(optimizer, lambda x, y: weighted_logloss(x, y, class_weight))
     # mdl.compile(optimizer, jaccard)
 
